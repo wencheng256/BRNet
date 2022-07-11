@@ -12,6 +12,7 @@ from utils import readlines
 from options import MonodepthOptions
 import datasets
 import networks
+import torch.nn.functional as F
 
 cv2.setNumThreads(0)  # This speeds up evaluation 5x on our unix systems (OpenCV 3.3.1)
 
@@ -113,7 +114,9 @@ def evaluate(opt):
 
                 output = depth_decoder(encoder(input_color))
 
-                pred_disp, _ = disp_to_depth(output[("disp", 0)], opt.min_depth, opt.max_depth)
+                disp = output[("disp", 0)]
+                disp = F.interpolate(disp, scale_factor=0.25, mode="area")
+                pred_disp, _ = disp_to_depth(disp, opt.min_depth, opt.max_depth)
                 pred_disp = pred_disp.cpu()[:, 0].numpy()
 
                 if opt.post_process:

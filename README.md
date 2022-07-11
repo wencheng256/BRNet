@@ -11,11 +11,6 @@ This is the reference PyTorch implementation for training and testing depth esti
 
 This code is for non-commercial use; please see the [license file](LICENSE) for terms.
 
-## Branch
-* Fake large experiments are provided in the branch `fake_large`
-* Global Branch + Detail Branch experiments are provided in the branch `global_detail`
-* Full experiments are provided in the branch `master`
-
 
 ## ⚙️ Setup
 

@@ -9,6 +9,7 @@ from __future__ import absolute_import, division, print_function
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from collections import OrderedDict
 from layers import *
@@ -50,6 +51,7 @@ class DepthDecoder(nn.Module):
     def forward(self, input_features):
         self.outputs = {}
 
+        prev_disp = None
         # decoder
         x = input_features[-1]
         for i in range(4, -1, -1):
@@ -60,6 +62,11 @@ class DepthDecoder(nn.Module):
             x = torch.cat(x, 1)
             x = self.convs[("upconv", i, 1)](x)
             if i in self.scales:
-                self.outputs[("disp", i)] = self.sigmoid(self.convs[("dispconv", i)](x))
+                if prev_disp is None:
+                    disp = self.convs[("dispconv", i)](x)
+                else:
+                    disp = F.interpolate(prev_disp, scale_factor=2, mode="bilinear") + self.convs[("dispconv", i)](x)
+                self.outputs[("disp", i)] = self.sigmoid(disp)
+                prev_disp = disp
 
         return self.outputs
