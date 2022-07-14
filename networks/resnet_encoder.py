@@ -7,6 +7,7 @@
 from __future__ import absolute_import, division, print_function
 
 import math
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -19,6 +20,7 @@ class ResNetMultiImageInput(models.ResNet):
     """Constructs a resnet model with varying number of input images.
     Adapted from https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py
     """
+
     def __init__(self, block, layers, num_classes=1000, num_input_images=1):
         super(ResNetMultiImageInput, self).__init__(block, layers)
         self.inplanes = 64
@@ -39,10 +41,12 @@ class ResNetMultiImageInput(models.ResNet):
                 nn.init.constant_(m.weight, 1)
                 nn.init.constant_(m.bias, 0)
 
+
 class GlobalEncoder(nn.Module):
     """Constructs a resnet model with varying number of input images.
     Adapted from https://github.com/pytorch/vision/blob/master/torchvision/models/resnet.py
     """
+
     def __init__(self):
         super(GlobalEncoder, self).__init__()
         self.inplanes = 256
@@ -94,10 +98,12 @@ def resnet_multiimage_input(num_layers, pretrained=False, num_input_images=1):
         model.load_state_dict(loaded)
     return model
 
+
 class PositionEmbeddingLearned(nn.Module):
     """
     Absolute pos embedding, learned.
     """
+
     def __init__(self, num_pos_feats=256):
         super().__init__()
         self.row_embed = nn.Embedding(24, num_pos_feats)
@@ -121,9 +127,11 @@ class PositionEmbeddingLearned(nn.Module):
         ], dim=-1).permute(2, 0, 1).unsqueeze(0).repeat(x.shape[0], 1, 1, 1)
         return pos
 
+
 class ResnetEncoder(nn.Module):
     """Pytorch module for a resnet encoder
     """
+
     def __init__(self, num_layers, pretrained, num_input_images=1):
         super(ResnetEncoder, self).__init__()
 
@@ -149,8 +157,8 @@ class ResnetEncoder(nn.Module):
 
         self.encoder.conv1.stride = (1, 1)
         self.multihead_attn = nn.MultiheadAttention(256, 4, dropout=0.1)
-        self.pos_edb_g = PositionEmbeddingLearned(256 // 2)
-        self.pos_edb_d = PositionEmbeddingLearned(256 // 2)
+        self.pos_edb = PositionEmbeddingLearned(256 // 2)
+        self.mha_scale = nn.Parameter(torch.FloatTensor([1]))
 
         if num_layers > 34:
             self.num_ch_enc[1:] *= 4
@@ -179,17 +187,16 @@ class ResnetEncoder(nn.Module):
 
         b, c, h, w = x.shape
         flatten_x = x.flatten(2).permute(2, 0, 1)
-        pos_ebd_d = self.pos_edb_d(x).flatten(2).permute(2, 0, 1)
 
         global_features = self.global_branch(x)
         global_flatten = global_features.flatten(2).permute(2, 0, 1)
-        pos_ebd_g = self.pos_edb_g(global_features).flatten(2).permute(2, 0, 1)
 
-        tgt = self.multihead_attn(query=flatten_x + pos_ebd_d,
-                                  key=global_flatten + pos_ebd_g,
+        tgt = self.multihead_attn(query=flatten_x,
+                                  key=global_flatten,
                                   value=global_flatten)[0]
 
-        x = x + F.interpolate(global_features, scale_factor=4, mode="bilinear") + self.mha_weight(tgt.permute(1, 2, 0).view(b, c, h, w))
+        x = x + F.interpolate(global_features, scale_factor=4, mode="bilinear") + self.mha_scale * self.mha_weight(
+            tgt.permute(1, 2, 0).view(b, c, h, w))
         x = self.encoder.layer4(x)
         self.features.append(x)
 

@@ -9,7 +9,6 @@ from __future__ import absolute_import, division, print_function
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from collections import OrderedDict
 from layers import *
@@ -43,7 +42,7 @@ class DepthDecoder(nn.Module):
             self.convs[("upconv", i, 1)] = ConvBlock(num_ch_in, num_ch_out)
 
         for s in self.scales:
-            self.convs[("dispconv", s)] = Conv3x3(self.num_ch_dec[s], self.num_output_channels)
+            self.convs[("dispconv", s)] = Conv3x3(self.num_ch_dec[s] + 1 if s != 3 else self.num_ch_dec[s], self.num_output_channels)
 
         self.decoder = nn.ModuleList(list(self.convs.values()))
         self.sigmoid = nn.Sigmoid()
@@ -51,9 +50,9 @@ class DepthDecoder(nn.Module):
     def forward(self, input_features):
         self.outputs = {}
 
-        prev_disp = None
         # decoder
         x = input_features[-1]
+        previous_disp = None
         for i in range(4, -1, -1):
             x = self.convs[("upconv", i, 0)](x)
             x = [upsample(x)]
@@ -62,11 +61,14 @@ class DepthDecoder(nn.Module):
             x = torch.cat(x, 1)
             x = self.convs[("upconv", i, 1)](x)
             if i in self.scales:
-                if prev_disp is None:
-                    disp = self.convs[("dispconv", i)](x)
+                if previous_disp is not None:
+                    previous_disp = F.interpolate(previous_disp, scale_factor=2, mode="bilinear")
+                    pred = self.sigmoid(self.convs[("dispconv", i)](torch.cat([x, previous_disp], 1)))
+                    pred = pred + previous_disp
                 else:
-                    disp = F.interpolate(prev_disp, scale_factor=2, mode="bilinear") + self.convs[("dispconv", i)](x)
-                self.outputs[("disp", i)] = self.sigmoid(disp)
-                prev_disp = disp
+                    pred = self.sigmoid(self.convs[("dispconv", i)](x))
+                self.outputs[("disp", i)] = pred
+                previous_disp = pred
 
+        self.outputs[("disp", 0)] = F.interpolate(self.outputs[("disp", 0)], scale_factor=0.5, mode="bilinear")
         return self.outputs
