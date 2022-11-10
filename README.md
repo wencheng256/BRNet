@@ -3,7 +3,16 @@
 This is the reference PyTorch implementation for training and testing depth estimation models using the method described in
 
 > This paper has been accepted by ECCV2022
-
+```
+@inproceedings{han2022brnet,
+  title={BRNet: Exploring Comprehensive Features for Monocular Depth Estimation},
+  author={Han, Wencheng and Yin, Junbo and Jin, Xiaogang and Dai, Xiangdong and Shen, Jianbing},
+  booktitle={European Conference on Computer Vision},
+  pages={586--602},
+  year={2022},
+  organization={Springer}
+}
+```
 
 <p align="center">
   <img src="assets/teaser.gif" alt="example input output gif" width="600" />
