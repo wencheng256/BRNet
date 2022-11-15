@@ -70,4 +70,6 @@ class DepthDecoder(nn.Module):
                 self.outputs[("disp", i)] = pred
                 previous_disp = pred
 
+        self.outputs[("disp", 0)] = F.interpolate(self.outputs[("disp", 0)], scale_factor=0.5, mode="bilinear")
+
         return self.outputs
